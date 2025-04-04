@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from telegram.ext import ApplicationBuilder, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
@@ -27,6 +28,23 @@ PROMPTS = [
     "/chat Identify the significant historical events and describe them in detail that took place in Europe on December 17?",
     "/chat Provide a detailed description of important historical events in Russian history on December 17?"
 ]
+
+# Add /start command handler
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if user_id != TARGET_USER_ID:
+        await update.message.reply_text("Sorry, this bot is configured to interact only with a specific user.")
+        logger.warning(f"Unauthorized user {user_id} attempted to use /start")
+        return
+
+    welcome_message = (
+        "📜 <b>Welcome to the History Cycle Bot!</b> 📜\n\n"
+        "I’m here to send you fascinating historical event prompts every 6 hours! 🌟\n"
+        "Each prompt will explore key events from a specific region on a given date, starting from March 22, 2025.\n\n"
+        "You’ll receive your first prompt shortly. Enjoy exploring the past! 🕰️"
+    )
+    await update.message.reply_text(welcome_message, parse_mode="HTML")
+    logger.info(f"User {user_id} started the bot with /start")
 
 async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Executing send_history_message job...")
@@ -76,6 +94,9 @@ def main():
             logger.error("JobQueue not initialized. Install with: pip install python-telegram-bot[job-queue]")
             return
         
+        # Add the /start command handler
+        application.add_handler(CommandHandler("start", start))
+
         # Send an initial message to confirm bot is live
         asyncio.get_event_loop().run_until_complete(send_initial_message(application))
 
