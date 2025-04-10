@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from telegram.ext import ApplicationBuilder, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
@@ -8,7 +9,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-TARGET_USER_ID = int(os.getenv('TARGET_USER_ID', '5313257171'))
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5313257171')  # Default as string, converted later
 
 # Configure logging
 logging.basicConfig(
@@ -64,26 +65,56 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
+        target_id = int(TARGET_USER_ID)  # Convert to integer here
         await context.bot.send_message(
-            chat_id=TARGET_USER_ID,
+            chat_id=target_id,
             text=message,
             parse_mode="HTML"
         )
-        logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to user {TARGET_USER_ID}")
+        logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to user {target_id}")
     except Exception as e:
         logger.error(f"Failed to send message to {TARGET_USER_ID}: {str(e)}")
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if str(user_id) != TARGET_USER_ID:
+        await update.message.reply_text("❌ This bot is configured for a specific user only.")
+        return
+
+    logger.info(f"Received /start from user {user_id}")
+    await update.message.reply_text(
+        "✨ <b>HistoryCycle Bot Started!</b> ✨\n"
+        "I’ll send you historical and musician prompts every 6 hours.\n"
+        "First prompt coming up now!",
+        parse_mode="HTML"
+    )
+
+    # Trigger an immediate prompt and start the cycle
+    context.job.data = {"historical_count": 0, "musician_count": 0}
+    await send_history_message(context)
+    if "history_job" not in context.bot_data:
+        context.bot_data["history_job"] = context.job_queue.run_repeating(
+            send_history_message, interval=21600, first=21600  # Next run in 6 hours
+        )
+        logger.info("Started 6-hour prompt cycle")
 
 async def start(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Bot started")
     context.job.data = {"historical_count": 0, "musician_count": 0}
-    context.job_queue.run_repeating(send_history_message, interval=21600, first=0)  # 6 hours
+    await send_history_message(context)  # Send initial prompt on startup
 
 def main():
     try:
+        if not BOT_TOKEN:
+            logger.error("BOT_TOKEN is not set in .env")
+            return
+
         application = ApplicationBuilder().token(BOT_TOKEN).build()
         if application.job_queue is None:
             logger.error("JobQueue not initialized. Install with: pip install python-telegram-bot[job-queue]")
             return
+
+        application.add_handler(CommandHandler("start", start_command))
         application.job_queue.run_once(start, 0)
         logger.info("Starting bot polling...")
         application.run_polling()
