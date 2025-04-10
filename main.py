@@ -1,7 +1,6 @@
 import logging
 import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, ContextTypes
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
@@ -9,7 +8,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-TARGET_USER_ID = int(os.getenv('TARGET_USER_ID', '5313257171'))  # Replace with your Telegram ID
+TARGET_USER_ID = int(os.getenv('TARGET_USER_ID', '5313257171'))
 
 # Configure logging
 logging.basicConfig(
@@ -19,48 +18,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# List of historical event prompts with /chat prefix
-PROMPTS = [
+# List of historical event prompts with identifiers
+HISTORICAL_PROMPTS = [
     "/chat Describe in detail, What important historical events took place in Australia or New Zealand on December 17?",
-    "/chat Could you describe in detail the major historical events that happened in Canada on December 17?",
-    "/chat Give a thorough account and details of key events that influenced the United States on December 17?",
-    "/chat List the major historical events and describe them in detail that occurred in the United Kingdom (including England, Scotland, Wales, Ireland, and London) on December 17?",
-    "/chat Identify the significant historical events and describe them in detail that took place in Europe on December 17?",
-    "/chat Provide a detailed description of important historical events in Russian history on December 17?"
+    "/grok Could you describe in detail the major historical events that happened in Canada on December 17?",
+    "/R1 Give a thorough account and details of key events that influenced the United States on December 17?",
+    "/perplexity List the major historical events and describe them in detail that occurred in the United Kingdom (including England, Scotland, Wales, Ireland, and London) on December 17?",
+    "/deepseek Identify the significant historical events and describe them in detail that took place in Europe on December 17?",
+    "/claude Provide a detailed description of important historical events in Russian history on December 17?"
 ]
 
-# Add /start command handler
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id != TARGET_USER_ID:
-        await update.message.reply_text("Sorry, this bot is configured to interact only with a specific user.")
-        logger.warning(f"Unauthorized user {user_id} attempted to use /start")
-        return
-
-    welcome_message = (
-        "📜 <b>Welcome to the History Cycle Bot!</b> 📜\n\n"
-        "I’m here to send you fascinating historical event prompts every 6 hours! 🌟\n"
-        "Each prompt will explore key events from a specific region on a given date, starting from March 22, 2025.\n\n"
-        "You’ll receive your first prompt shortly. Enjoy exploring the past! 🕰️"
-    )
-    await update.message.reply_text(welcome_message, parse_mode="HTML")
-    logger.info(f"User {user_id} started the bot with /start")
+# List of musician prompts with identifiers
+MUSICIAN_PROMPTS = [
+    "/ask Which notable musicians passed away on December 17 in history?",
+    "/chat Which notable musicians passed away on December 17 in history?",
+    "/grok Which notable musicians passed away on December 17 in history?",
+    "/R1 Which notable musicians passed away on December 17 in history?",
+    "/perplexity Which notable musicians passed away on December 17 in history?",
+    "/deepseek Which notable musicians passed away on December 17 in history?",
+    "/claude Which notable musicians passed away on December 17 in history?"
+]
 
 async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Executing send_history_message job...")
     now = datetime.now()
-    start_date = datetime(2025, 3, 22)  # Starting date: March 22, 2025
+    start_date = datetime(2025, 3, 22)  # Starting date
     days_since_start = (now - start_date).days
-    prompt_index = (context.job.data["count"] % len(PROMPTS))
-    context.job.data["count"] += 1
+    historical_index = context.job.data["historical_count"] % len(HISTORICAL_PROMPTS)
+    musician_index = context.job.data["musician_count"] % len(MUSICIAN_PROMPTS)
+    context.job.data["historical_count"] += 1
+    context.job.data["musician_count"] += 1
 
+    # Update date in prompts
     current_date = start_date + timedelta(days=days_since_start)
-    date_str = current_date.strftime("%B %d")  # e.g., "March 23"
-    
-    prompt = PROMPTS[prompt_index].replace("December 17", date_str)
+    date_str = current_date.strftime("%B %d")  # e.g., "April 10"
 
-    # Simplified message starting with the prompt
-    message = f"{prompt}\nEnjoy exploring the past! 🌟"
+    historical_prompt = HISTORICAL_PROMPTS[historical_index].replace("December 17", date_str)
+    musician_prompt = MUSICIAN_PROMPTS[musician_index].replace("December 17", date_str)
+
+    message = (
+        f"📜 <b>History Prompt</b> 📜\n"
+        f"{historical_prompt}\n"
+        f"🎶 <b>Music Prompt</b> 🎶\n"
+        f"{musician_prompt}\n"
+        f"Enjoy exploring the past! 🌟"
+    )
 
     try:
         await context.bot.send_message(
@@ -68,24 +69,14 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
             text=message,
             parse_mode="HTML"
         )
-        logger.info(f"Sent prompt {prompt_index + 1}/{len(PROMPTS)} to user {TARGET_USER_ID}")
+        logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to user {TARGET_USER_ID}")
     except Exception as e:
         logger.error(f"Failed to send message to {TARGET_USER_ID}: {str(e)}")
 
-async def send_initial_message(application):
-    message = (
-        f"📜 <b>Bot Online!</b> 📜\n"
-        f"I’m live and will send your history prompts every 6 hours! 🌟"
-    )
-    try:
-        await application.bot.send_message(
-            chat_id=TARGET_USER_ID,
-            text=message,
-            parse_mode="HTML"
-        )
-        logger.info(f"Sent initial message to user {TARGET_USER_ID}")
-    except Exception as e:
-        logger.error(f"Failed to send initial message to {TARGET_USER_ID}: {str(e)}")
+async def start(context: ContextTypes.DEFAULT_TYPE):
+    logger.info("Bot started")
+    context.job.data = {"historical_count": 0, "musician_count": 0}
+    context.job_queue.run_repeating(send_history_message, interval=21600, first=0)  # 6 hours
 
 def main():
     try:
@@ -93,22 +84,7 @@ def main():
         if application.job_queue is None:
             logger.error("JobQueue not initialized. Install with: pip install python-telegram-bot[job-queue]")
             return
-        
-        # Add the /start command handler
-        application.add_handler(CommandHandler("start", start))
-
-        # Send an initial message to confirm bot is live
-        asyncio.get_event_loop().run_until_complete(send_initial_message(application))
-
-        # Start the automated messaging
-        logger.info("Scheduling automated messaging...")
-        application.job_queue.run_repeating(
-            send_history_message,
-            interval=21600,  # 6 hours
-            first=0,  # Start immediately
-            data={"count": 0}  # Initial counter
-        )
-
+        application.job_queue.run_once(start, 0)
         logger.info("Starting bot polling...")
         application.run_polling()
     except Exception as e:
