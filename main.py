@@ -89,7 +89,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         parse_mode="HTML"
     )
 
-    # Trigger an immediate prompt and start the cycle if not already running
+    # Trigger an immediate prompt and start the cycle
     context.job.data = {"historical_count": 0, "musician_count": 0}
     await send_history_message(context)
     if "history_job" not in context.bot_data:
