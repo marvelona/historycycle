@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5313257171')  # Default as string, converted later
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5313257171')  # Default as string
 
 # Configure logging
 logging.basicConfig(
@@ -65,7 +65,7 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        target_id = int(TARGET_USER_ID)  # Convert to integer here
+        target_id = int(TARGET_USER_ID)
         await context.bot.send_message(
             chat_id=target_id,
             text=message,
@@ -89,19 +89,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         parse_mode="HTML"
     )
 
-    # Trigger an immediate prompt and start the cycle
+    # Trigger an immediate prompt and start the cycle if not already running
     context.job.data = {"historical_count": 0, "musician_count": 0}
     await send_history_message(context)
     if "history_job" not in context.bot_data:
         context.bot_data["history_job"] = context.job_queue.run_repeating(
-            send_history_message, interval=21600, first=21600  # Next run in 6 hours
+            send_history_message, interval=21600, first=21600  # Next in 6 hours
         )
         logger.info("Started 6-hour prompt cycle")
 
 async def start(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Bot started")
     context.job.data = {"historical_count": 0, "musician_count": 0}
-    await send_history_message(context)  # Send initial prompt on startup
+    await send_history_message(context)
 
 def main():
     try:
