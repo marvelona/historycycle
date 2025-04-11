@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5359112184')  # Default to your ID
 
 # Configure logging
 logging.basicConfig(
@@ -17,20 +18,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(), logging.FileHandler('historycycle.log')]
 )
 logger = logging.getLogger(__name__)
-
-# Group chat IDs for each identifier
-GROUP_IDS = {
-    "/chat": [
-        "2389474950", "2466861703", "2491432519",
-        "2329211369", "2284070859", "2184790995"
-    ],
-    "/grok": ["2343706272"],
-    "/R1": ["2432319988"],
-    "/perplexity": ["2432319988"],
-    "/deepseek": ["2428801617"],
-    "/claude": ["2414168078"],
-    "/ask": ["2451627445"]
-}
 
 # List of historical event prompts with identifiers
 HISTORICAL_PROMPTS = [
@@ -65,7 +52,7 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
 
     # Update date in prompts
     current_date = start_date + timedelta(days=days_since_start)
-    date_str = current_date.strftime("%B %d")  # e.g., "April 10"
+    date_str = current_date.strftime("%B %d")  # e.g., "April 11"
 
     historical_prompt = HISTORICAL_PROMPTS[historical_index].replace("December 17", date_str)
     musician_prompt = MUSICIAN_PROMPTS[musician_index].replace("December 17", date_str)
@@ -78,31 +65,27 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
         f"Enjoy exploring the past! 🌟"
     )
 
-    # Send to groups based on identifiers
-    historical_id = historical_prompt.split()[0]  # e.g., "/chat"
-    musician_id = musician_prompt.split()[0]
-    historical_groups = GROUP_IDS.get(historical_id, [])
-    musician_groups = GROUP_IDS.get(musician_id, [])
-
-    all_groups = list(set(historical_groups + musician_groups))  # Combine unique group IDs
-    for group_id in all_groups:
-        try:
-            await context.bot.send_message(
-                chat_id=int(group_id),
-                text=message,
-                parse_mode="HTML"
-            )
-            logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to group {group_id}")
-        except Exception as e:
-            logger.error(f"Failed to send message to group {group_id}: {str(e)}")
+    try:
+        target_id = int(TARGET_USER_ID)
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=message,
+            parse_mode="HTML"
+        )
+        logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to user {target_id}")
+    except Exception as e:
+        logger.error(f"Failed to send message to {TARGET_USER_ID}: {str(e)}")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    # Allow /start from any user to trigger prompts, but send to groups
+    if str(user_id) != TARGET_USER_ID:
+        await update.message.reply_text("❌ This bot is configured for a specific user only.")
+        return
+
     logger.info(f"Received /start from user {user_id}")
     await update.message.reply_text(
         "✨ <b>HistoryCycle Bot Started!</b> ✨\n"
-        "I’ll send historical and musician prompts to the designated groups every minute for testing.\n"
+        "I’ll send you historical and musician prompts every minute for testing.\n"
         "First prompt coming up now!",
         parse_mode="HTML"
     )
@@ -112,19 +95,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def send_initial_message(application):
     message = (
         f"📜 <b>Bot Online!</b> 📜\n"
-        f"I’m live and will send history and musician prompts to groups every minute for testing! 🌟"
+        f"I’m live and will send your history and musician prompts every minute for testing! 🌟"
     )
-    for identifier, groups in GROUP_IDS.items():
-        for group_id in groups:
-            try:
-                await application.bot.send_message(
-                    chat_id=int(group_id),
-                    text=message,
-                    parse_mode="HTML"
-                )
-                logger.info(f"Sent initial message to group {group_id}")
-            except Exception as e:
-                logger.error(f"Failed to send initial message to group {group_id}: {str(e)}")
+    try:
+        target_id = int(TARGET_USER_ID)
+        await application.bot.send_message(
+            chat_id=target_id,
+            text=message,
+            parse_mode="HTML"
+        )
+        logger.info(f"Sent initial message to user {target_id}")
+    except Exception as e:
+        logger.error(f"Failed to send initial message to {TARGET_USER_ID}: {str(e)}")
 
 def main():
     try:
