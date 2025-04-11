@@ -41,17 +41,17 @@ MUSICIAN_PROMPTS = [
 ]
 
 async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
+    logger.info("Entering send_history_message function")
     now = datetime.now()
-    start_date = datetime(2025, 3, 22)  # Starting date
+    start_date = datetime(2025, 3, 22)
     days_since_start = (now - start_date).days
-    historical_index = context.job.data["historical_count"] % len(HISTORICAL_PROMPTS)
-    musician_index = context.job.data["musician_count"] % len(MUSICIAN_PROMPTS)
-    context.job.data["historical_count"] += 1
-    context.job.data["musician_count"] += 1
+    historical_index = context.job.data.get("historical_count", 0) % len(HISTORICAL_PROMPTS)
+    musician_index = context.job.data.get("musician_count", 0) % len(MUSICIAN_PROMPTS)
+    context.job.data["historical_count"] = historical_index + 1
+    context.job.data["musician_count"] = musician_index + 1
 
-    # Update date in prompts
     current_date = start_date + timedelta(days=days_since_start)
-    date_str = current_date.strftime("%B %d")  # e.g., "April 10"
+    date_str = current_date.strftime("%B %d")
 
     historical_prompt = HISTORICAL_PROMPTS[historical_index].replace("December 17", date_str)
     musician_prompt = MUSICIAN_PROMPTS[musician_index].replace("December 17", date_str)
@@ -66,6 +66,7 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
 
     try:
         target_id = int(TARGET_USER_ID)
+        logger.info(f"Attempting to send message to {target_id}")
         await context.bot.send_message(
             chat_id=target_id,
             text=message,
@@ -99,14 +100,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.info("Started 1-minute prompt cycle for testing")
 
 async def start(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Bot started")
+    logger.info("Bot started - Initializing job data")
     context.job.data = {"historical_count": 0, "musician_count": 0}
     await send_history_message(context)
 
 def main():
     try:
         if not BOT_TOKEN:
-            logger.error("BOT_TOKEN is not set in .env")
+            logger.error("BOT_TOKEN is not set in environment variables")
             return
 
         application = ApplicationBuilder().token(BOT_TOKEN).build()
