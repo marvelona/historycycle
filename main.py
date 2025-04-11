@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5313257171')  # Default as string
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5313257171')
 
 # Configure logging
 logging.basicConfig(
@@ -84,7 +84,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.info(f"Received /start from user {user_id}")
     await update.message.reply_text(
         "✨ <b>HistoryCycle Bot Started!</b> ✨\n"
-        "I’ll send you historical and musician prompts every 6 hours.\n"
+        "I’ll send you historical and musician prompts every minute for testing.\n"
         "First prompt coming up now!",
         parse_mode="HTML"
     )
@@ -94,9 +94,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await send_history_message(context)
     if "history_job" not in context.bot_data:
         context.bot_data["history_job"] = context.job_queue.run_repeating(
-            send_history_message, interval=21600, first=21600  # Next in 6 hours
+            send_history_message, interval=60, first=60  # 1 minute for testing
         )
-        logger.info("Started 6-hour prompt cycle")
+        logger.info("Started 1-minute prompt cycle for testing")
 
 async def start(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Bot started")
