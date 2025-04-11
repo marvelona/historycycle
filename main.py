@@ -91,7 +91,7 @@ def main():
         logger.info("Scheduling automated messaging...")
         application.job_queue.run_repeating(
             send_history_message,
-            interval=60,  # 1 minute for testing
+            interval=21600,  # 6 hours
             first=0,  # Start immediately
             data={"historical_count": 0, "musician_count": 0}
         )
