@@ -1,7 +1,6 @@
 import logging
 import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, ContextTypes
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
@@ -9,7 +8,7 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5359112184')  # Default to your ID
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5359112184')
 
 # Configure logging
 logging.basicConfig(
@@ -57,56 +56,26 @@ async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
     historical_prompt = HISTORICAL_PROMPTS[historical_index].replace("December 17", date_str)
     musician_prompt = MUSICIAN_PROMPTS[musician_index].replace("December 17", date_str)
 
-    message = (
-        f"📜 <b>History Prompt</b> 📜\n"
-        f"{historical_prompt}\n"
-        f"🎶 <b>Music Prompt</b> 🎶\n"
-        f"{musician_prompt}\n"
-        f"Enjoy exploring the past! 🌟"
-    )
-
     try:
         target_id = int(TARGET_USER_ID)
+        # Send historical prompt
         await context.bot.send_message(
             chat_id=target_id,
-            text=message,
-            parse_mode="HTML"
+            text=historical_prompt
         )
-        logger.info(f"Sent prompts {historical_index + 1}/{len(HISTORICAL_PROMPTS)} (history) and {musician_index + 1}/{len(MUSICIAN_PROMPTS)} (music) to user {target_id}")
+        logger.info(f"Sent historical prompt {historical_index + 1}/{len(HISTORICAL_PROMPTS)} to user {target_id}")
+
+        # Wait 5 seconds
+        await asyncio.sleep(5)
+
+        # Send musician prompt
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=musician_prompt
+        )
+        logger.info(f"Sent musician prompt {musician_index + 1}/{len(MUSICIAN_PROMPTS)} to user {target_id}")
     except Exception as e:
         logger.error(f"Failed to send message to {TARGET_USER_ID}: {str(e)}")
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    if str(user_id) != TARGET_USER_ID:
-        await update.message.reply_text("❌ This bot is configured for a specific user only.")
-        return
-
-    logger.info(f"Received /start from user {user_id}")
-    await update.message.reply_text(
-        "✨ <b>HistoryCycle Bot Started!</b> ✨\n"
-        "I’ll send you historical and musician prompts every minute for testing.\n"
-        "First prompt coming up now!",
-        parse_mode="HTML"
-    )
-    # Trigger an immediate prompt
-    await send_history_message(context)
-
-async def send_initial_message(application):
-    message = (
-        f"📜 <b>Bot Online!</b> 📜\n"
-        f"I’m live and will send your history and musician prompts every minute for testing! 🌟"
-    )
-    try:
-        target_id = int(TARGET_USER_ID)
-        await application.bot.send_message(
-            chat_id=target_id,
-            text=message,
-            parse_mode="HTML"
-        )
-        logger.info(f"Sent initial message to user {target_id}")
-    except Exception as e:
-        logger.error(f"Failed to send initial message to {TARGET_USER_ID}: {str(e)}")
 
 def main():
     try:
@@ -118,9 +87,6 @@ def main():
         if application.job_queue is None:
             logger.error("JobQueue not initialized. Install with: pip install python-telegram-bot[job-queue]")
             return
-
-        application.add_handler(CommandHandler("start", start_command))
-        asyncio.get_event_loop().run_until_complete(send_initial_message(application))
 
         logger.info("Scheduling automated messaging...")
         application.job_queue.run_repeating(
