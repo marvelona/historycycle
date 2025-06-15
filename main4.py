@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
-API_ID = os.getenv('API_ID', '23367493')
+API_ID = os.getenv('API_ID')
 API_HASH = os.getenv('API_HASH')  # Must provide a valid api_hash
 TARGET_GROUP_IDS = os.getenv('TARGET_GROUP_IDS', '2389474950,2466861703,2491432519,2329211369,2284070859,2184790995').split(',')
 
