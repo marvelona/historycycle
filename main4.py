@@ -18,25 +18,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# List of historical event prompts with identifiers
+# List of historical event prompts with new identifiers for Georgia, USA
 HISTORICAL_PROMPTS = [
-    "/chat Describe in detail, What important historical events took place in Australia or New Zealand on December 17?",
-    "/grok Could you describe in detail the major historical events that happened in Canada on December 17?",
-    "/R1 Give a thorough account and details of key events that influenced the United States on December 17?",
-    "/perplexity List the major historical events and describe them in detail that occurred in the United Kingdom (including England, Scotland, Wales, Ireland, and London) on December 17?",
-    "/deepseek Identify the significant historical events and describe them in detail that took place in Europe on December 17?",
-    "/claude Provide a detailed description of important historical events in Russian history on December 17?"
+    "/text Describe in detail, What significant events occurred in the founding of the Georgia colony by James Oglethorpe on December 17?",
+    "/chat Provide a thorough account of Georgia’s role in the American Revolution, including its contributions to the Declaration of Independence, on December 17?",
+    "/voice Explain in detail the development of the cotton economy and the role of slavery in Georgia’s history on December 17?",
+    "/textplus Give a detailed description of the Trail of Tears and the forced removal of the Cherokee from Georgia on December 17?",
+    "/chatplus Describe in detail the major Civil War battles and Sherman’s March to the Sea in Georgia on December 17?",
+    "/voiceplus Provide a thorough account of the Reconstruction period and Black political participation in Georgia on December 17?"
 ]
 
-# List of musician prompts with identifiers
+# List of musician prompts with new identifiers (unchanged)
 MUSICIAN_PROMPTS = [
-    "/ask Which notable musicians passed away on December 17 in history?",
+    "/text Which notable musicians passed away on December 17 in history?",
     "/chat Which notable musicians passed away on December 17 in history?",
-    "/grok Which notable musicians passed away on December 17 in history?",
-    "/R1 Which notable musicians passed away on December 17 in history?",
-    "/perplexity Which notable musicians passed away on December 17 in history?",
-    "/deepseek Which notable musicians passed away on December 17 in history?",
-    "/claude Which notable musicians passed away on December 17 in history?"
+    "/voice Which notable musicians passed away on December 17 in history?",
+    "/textplus Which notable musicians passed away on December 17 in history?",
+    "/chatplus Which notable musicians passed away on December 17 in history?",
+    "/voiceplus Which notable musicians passed away on December 17 in history?",
+    "/text Which notable musicians passed away on December 17 in history?"  # Cycle back to /text
 ]
 
 async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
