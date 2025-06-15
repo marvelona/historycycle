@@ -1,15 +1,14 @@
 import logging
 import asyncio
-from telethon import TelegramClient
+from telegram.ext import ApplicationBuilder, ContextTypes
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
-API_ID = os.getenv('API_ID')
-API_HASH = os.getenv('API_HASH')  # Must provide a valid api_hash
-TARGET_GROUP_IDS = os.getenv('TARGET_GROUP_IDS', '2389474950,2466861703,2491432519,2329211369,2284070859,2184790995').split(',')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+TARGET_USER_ID = os.getenv('TARGET_USER_ID', '5359112184')
 
 # Configure logging
 logging.basicConfig(
@@ -40,16 +39,15 @@ MUSICIAN_PROMPTS = [
     "/text Which notable musicians passed away on December 17 in history?"
 ]
 
-# Create the client
-client = TelegramClient('historycycle_session', API_ID, API_HASH)
-
-async def send_history_message(historical_count, musician_count):
+async def send_history_message(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Executing send_history_message job...")
     now = datetime.now()
     start_date = datetime(2025, 3, 22)  # Starting date
     days_since_start = (now - start_date).days
-    historical_index = historical_count % len(HISTORICAL_PROMPTS)
-    musician_index = musician_count % len(MUSICIAN_PROMPTS)
+    historical_index = context.job.data["historical_count"] % len(HISTORICAL_PROMPTS)
+    musician_index = context.job.data["musician_count"] % len(MUSICIAN_PROMPTS)
+    context.job.data["historical_count"] += 1
+    context.job.data["musician_count"] += 1
 
     # Update date in prompts
     current_date = start_date + timedelta(days=days_since_start)
@@ -58,41 +56,50 @@ async def send_history_message(historical_count, musician_count):
     historical_prompt = HISTORICAL_PROMPTS[historical_index].replace("December 17", date_str)
     musician_prompt = MUSICIAN_PROMPTS[musician_index].replace("December 17", date_str)
 
-    for group_id in TARGET_GROUP_IDS:
-        try:
-            target_id = int(group_id.strip())
-            # Send historical prompt
-            await client.send_message(
-                entity=target_id,
-                message=historical_prompt
-            )
-            logger.info(f"Sent historical prompt {historical_index + 1}/{len(HISTORICAL_PROMPTS)} to group {target_id}")
+    try:
+        target_id = int(TARGET_USER_ID)
+        # Send historical prompt
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=historical_prompt
+        )
+        logger.info(f"Sent historical prompt {historical_index + 1}/{len(HISTORICAL_PROMPTS)} to user {target_id}")
 
-            # Wait 5 seconds
-            await asyncio.sleep(5)
+        # Wait 5 seconds
+        await asyncio.sleep(5)
 
-            # Send musician prompt
-            await client.send_message(
-                entity=target_id,
-                message=musician_prompt
-            )
-            logger.info(f"Sent musician prompt {musician_index + 1}/{len(MUSICIAN_PROMPTS)} to group {target_id}")
-        except Exception as e:
-            logger.error(f"Failed to send message to {group_id}: {str(e)}")
+        # Send musician prompt
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=musician_prompt
+        )
+        logger.info(f"Sent musician prompt {musician_index + 1}/{len(MUSICIAN_PROMPTS)} to user {target_id}")
+    except Exception as e:
+        logger.error(f"Failed to send message to {TARGET_USER_ID}: {str(e)}")
 
-    return historical_count + 1, musician_count + 1
+def main():
+    try:
+        if not BOT_TOKEN:
+            logger.error("BOT_TOKEN is not set in environment variables")
+            return
 
-async def main():
-    await client.start()
-    logger.info("Userbot is running. It will send historical and musician prompts to the target groups every 6 hours from your account.")
-    
-    historical_count = 0
-    musician_count = 0
-    
-    while True:
-        historical_count, musician_count = await send_history_message(historical_count, musician_count)
-        await asyncio.sleep(21600)  # 6 hours
+        application = ApplicationBuilder().token(BOT_TOKEN).build()
+        if application.job_queue is None:
+            logger.error("JobQueue not initialized. Install with: pip install python-telegram-bot[job-queue]")
+            return
 
-# Run the bot
-with client:
-    client.loop.run_until_complete(main())
+        logger.info("Scheduling automated messaging...")
+        application.job_queue.run_repeating(
+            send_history_message,
+            interval=21600,  # 6 hours
+            first=0,  # Start immediately
+            data={"historical_count": 0, "musician_count": 0}
+        )
+
+        logger.info("Starting bot polling...")
+        application.run_polling()
+    except Exception as e:
+        logger.error(f"Bot failed to start: {str(e)}", exc_info=True)
+
+if __name__ == "__main__":
+    main()
